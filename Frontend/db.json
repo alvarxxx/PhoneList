@@ -1,0 +1,80 @@
+{
+  "persons": [
+    {
+      "name": "Arto Hellas",
+      "number": "040-123456",
+      "id": "1"
+    },
+    {
+      "name": "Ada Lovelace",
+      "number": "39-44-5323523",
+      "id": "2"
+    },
+    {
+      "name": "Dan Abramov",
+      "number": "12-43-234345",
+      "id": "3"
+    },
+    {
+      "name": "Mary Poppendieck",
+      "number": "39-23-6423122",
+      "id": "4"
+    },
+    {
+      "name": "Samuel ",
+      "number": "82989218921",
+      "id": "now2aU5mckE"
+    },
+    {
+      "name": "Daniel ",
+      "number": "7654323",
+      "id": "ELv6l9wbJ_Q"
+    },
+    {
+      "name": "Marco",
+      "number": "1212121",
+      "id": "MhPaRUDTid0"
+    },
+    {
+      "name": "Lucas",
+      "number": "12121212",
+      "id": "r0dmFIsSmBI"
+    },
+    {
+      "name": "Marcus Lein",
+      "number": "7777777",
+      "id": "JWTPIqOm9jE"
+    },
+    {
+      "name": "Fermin",
+      "number": "321212112112",
+      "id": "Auvlq3Yf7BY"
+    },
+    {
+      "name": "Sonic ",
+      "number": "7777777777",
+      "id": "uUC-3Ul1q_M"
+    },
+    {
+      "name": "Samuel",
+      "number": "67367367367367",
+      "id": "JPewPzNBoQ4"
+    },
+    {
+      "name": "Martin Luther King",
+      "number": "767374354",
+      "id": "ZgpYqkJVRds"
+    },
+    {
+      "name": "Roberto ",
+      "number": "636587723",
+      "id": "nt_jEatSN9s"
+    },
+    {
+      "name": "Tio Lucas",
+      "number": "34343434",
+      "id": "eXnMswX6be8"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
+}
