@@ -9,22 +9,31 @@ const Person = require('./models/person')
 
 const app = express()
 
-// 🔥 Mongo connection
-const url = process.env.MONGODB_URI
-
-mongoose.set('strictQuery', false)
-
-mongoose.connect(url)
-  .then(() => console.log('connected to MongoDB'))
-  .catch(err => console.log('Mongo error:', err))
-
-// middleware
+// Middleware (debe definirse antes de las rutas)
 app.use(cors())
 app.use(express.json())
 app.use(express.static('dist'))
 
 morgan.token('body', req => JSON.stringify(req.body))
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
+
+// 🔥 Conexión a MongoDB
+const url = process.env.MONGODB_URI
+mongoose.set('strictQuery', false)
+
+mongoose.connect(url)
+  .then(() => {
+    console.log('✅ connected to MongoDB')
+    // 🚀 El servidor arranca AHORA, justo después de conectar
+    const PORT = process.env.PORT || 3002
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`)
+    })
+  })
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message)
+    process.exit(1)   // No arrancar el servidor si la BD falla
+  })
 
 // ================= ROUTES =================
 
@@ -56,20 +65,18 @@ app.post('/api/persons', (request, response, next) => {
     .then(existingPerson => {
 
       if (existingPerson) {
-        // 🔥 ACTUALIZAR en vez de crear
+        // Actualizar número si ya existe
         existingPerson.number = body.number
-
         return existingPerson.save().then(updated => {
           response.json(updated)
         })
       }
 
-      // 🔥 SI NO EXISTE → CREAR
+      // Crear nueva persona
       const person = new Person({
         name: body.name,
         number: body.number,
       })
-
       return person.save().then(saved => {
         response.json(saved)
       })
@@ -77,9 +84,9 @@ app.post('/api/persons', (request, response, next) => {
     .catch(error => next(error))
 })
 
+// PUT
 app.put('/api/persons/:id', (req, res, next) => {
   const body = req.body
-
   const person = {
     name: body.name,
     number: body.number,
@@ -119,34 +126,23 @@ app.get('/info', (req, res, next) => {
     .catch(error => next(error))
 })
 
-
-// UNKNOWN ENDPOINT (🔥 AQUÍ)
+// UNKNOWN ENDPOINT
 const unknownEndpoint = (req, res) => {
   res.status(404).json({ error: 'unknown endpoint' })
 }
-
 app.use(unknownEndpoint)
 
-
+// ERROR HANDLER
 const errorHandler = (error, req, res, next) => {
   console.error(error.message)
 
   if (error.name === 'CastError') {
     return res.status(400).json({ error: 'malformatted id' })
   }
-
-  // errores de validación de mongoose
   if (error.name === 'ValidationError') {
     return res.status(400).json({ error: error.message })
   }
 
   next(error)
 }
-
 app.use(errorHandler)
-
-// START SERVER
-const PORT = process.env.PORT || 3002
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
