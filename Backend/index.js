@@ -1,120 +1,151 @@
+require('dotenv').config()
+
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const mongoose = require('mongoose')
+
+const Person = require('./models/person')
 
 const app = express()
 
+// 🔥 Mongo connection
+const url = process.env.MONGODB_URI
 
-app.use(express.static('dist'))
+mongoose.set('strictQuery', false)
+
+mongoose.connect(url)
+  .then(() => console.log('connected to MongoDB'))
+  .catch(err => console.log('Mongo error:', err))
+
+// middleware
 app.use(cors())
 app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.static('dist'))
 
-// Token personalizado para mostrar el body
-morgan.token('body', (req) => JSON.stringify(req.body))
-
-// Usar morgan (después de express.json)
+morgan.token('body', req => JSON.stringify(req.body))
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 
-let persons = [
-  { 
-    id: 1,
-    name: "Arto Hellas", 
-    number: "040-123456"
-  },
-  { 
-    id: 2,
-    name: "Ada Lovelace", 
-    number: "39-44-5323523"
-  },
-  { 
-    id: 3,
-    name: "Dan Abramov", 
-    number: "12-43-234345"
-  },
-  { 
-    id: 4,
-    name: "Mary Poppendieck", 
-    number: "39-23-6423122"
-  }
-]
+// ================= ROUTES =================
 
-// Obtener todas las personas
-app.get('/api/persons', (req, res) => {
-  res.json(persons)
+// GET ALL
+app.get('/api/persons', (req, res, next) => {
+  Person.find({})
+    .then(persons => res.json(persons))
+    .catch(error => next(error))
 })
 
-// Obtener una persona por id
-app.get('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id)
-  const person = persons.find(p => p.id === id)
-
-  if (person) {
-    res.json(person)
-  } else {
-    res.status(404).json({ error: 'person not found' })
-  }
-})
-
-// Eliminar una persona
-app.delete('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id)
-
-  const exists = persons.some(p => p.id === id)
-  if (!exists) {
-    return res.status(404).json({ error: 'person not found' })
-  }
-
-  persons = persons.filter(p => p.id !== id)
-  res.status(204).end()
-})
-
-// Generar nuevo ID
-const generateId = () => {
-  const maxId = persons.length > 0
-    ? Math.max(...persons.map(p => p.id))
-    : 0
-  return maxId + 1
-}
-
-// Añadir una persona
-app.post('/api/persons', (req, res) => {
-  const { name, number } = req.body
-
-  if (!name || !number) {
-    return res.status(400).json({
-      error: 'name or number missing'
+// GET BY ID
+app.get('/api/persons/:id', (req, res, next) => {
+  Person.findById(req.params.id)
+    .then(person => {
+      if (person) {
+        res.json(person)
+      } else {
+        res.status(404).end()
+      }
     })
-  }
+    .catch(error => next(error))
+})
 
-  const existingPerson = persons.find(p => p.name === name)
-  if (existingPerson) {
-    return res.status(400).json({
-      error: 'name must be unique'
+// POST
+app.post('/api/persons', (request, response, next) => {
+  const body = request.body
+
+  Person.findOne({ name: body.name })
+    .then(existingPerson => {
+
+      if (existingPerson) {
+        // 🔥 ACTUALIZAR en vez de crear
+        existingPerson.number = body.number
+
+        return existingPerson.save().then(updated => {
+          response.json(updated)
+        })
+      }
+
+      // 🔥 SI NO EXISTE → CREAR
+      const person = new Person({
+        name: body.name,
+        number: body.number,
+      })
+
+      return person.save().then(saved => {
+        response.json(saved)
+      })
     })
-  }
+    .catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (req, res, next) => {
+  const body = req.body
 
   const person = {
-    id: generateId(),
-    name,
-    number
+    name: body.name,
+    number: body.number,
   }
 
-  persons = persons.concat(person)
-  res.status(201).json(person)
+  Person.findByIdAndUpdate(
+    req.params.id,
+    person,
+    {
+      new: true,
+      runValidators: true,
+      context: 'query'
+    }
+  )
+    .then(updatedPerson => {
+      res.json(updatedPerson)
+    })
+    .catch(error => next(error))
 })
 
-// Info del phonebook
-app.get('/info', (req, res) => {
-  const total = persons.length
-  const date = new Date()
-
-  res.send(`
-    <p>Phonebook has info for ${total} people</p>
-    <p>${date}</p>
-  `)
+// DELETE
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndDelete(req.params.id)
+    .then(() => res.status(204).end())
+    .catch(error => next(error))
 })
 
+// INFO
+app.get('/info', (req, res, next) => {
+  Person.countDocuments({})
+    .then(count => {
+      res.send(`
+        <p>Phonebook has info for ${count} people</p>
+        <p>${new Date()}</p>
+      `)
+    })
+    .catch(error => next(error))
+})
+
+
+// UNKNOWN ENDPOINT (🔥 AQUÍ)
+const unknownEndpoint = (req, res) => {
+  res.status(404).json({ error: 'unknown endpoint' })
+}
+
+app.use(unknownEndpoint)
+
+
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return res.status(400).json({ error: 'malformatted id' })
+  }
+
+  // errores de validación de mongoose
+  if (error.name === 'ValidationError') {
+    return res.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
+
+// START SERVER
 const PORT = process.env.PORT || 3002
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
